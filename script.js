@@ -510,15 +510,25 @@ const apps = {
     title: 'void records',
     content: () => `
       <div class="vr-app">
-        <div>void records v1 — local audio only</div>
-        <input type="file" id="vr-file" accept="audio/*">
+        <div>void records — ${typeof TRACKS !== 'undefined' ? TRACKS.length : 0} tracks</div>
+        <select id="vr-track" style="background:#1a1a20;color:#e0e0e0;border:1px solid #4c1d95;padding:4px;border-radius:4px;max-width:100%;"></select>
         <button class="vr-btn" id="vr-play">play / pause</button>
         <div class="vr-visual" id="vr-vis"></div>
-        <div style="font-size:11px;color:#888;">drop a track and vibe. no data leaves the browser.</div>
+        <input type="file" id="vr-file" accept="audio/*" style="font-size:11px;">
+        <div style="font-size:11px;color:#888;">or drop your own file. no data leaves the browser.</div>
       </div>
     `,
     init: (win) => {
       let audio, ctx, analyser, source, data, raf;
+      const sel = win.el.querySelector('#vr-track');
+      if (typeof TRACKS !== 'undefined') {
+        TRACKS.forEach((t, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = t.n;
+          sel.appendChild(opt);
+        });
+      }
       const vis = win.el.querySelector('#vr-vis');
       for (let i = 0; i < 32; i++) {
         const b = document.createElement('div'); b.className = 'vr-bar'; b.style.height = '4px'; vis.appendChild(b);
@@ -530,9 +540,27 @@ const apps = {
         for (let i = 0; i < 32; i++) bars[i].style.height = Math.max(4, data[i * 2]) + 'px';
         raf = requestAnimationFrame(draw);
       }
+      function loadTrack(idx) {
+        if (typeof TRACKS === 'undefined' || !TRACKS[idx]) return;
+        const t = TRACKS[idx];
+        if (audio) { audio.pause(); audio.src = ''; }
+        audio = new Audio('tracks/' + t.f);
+        audio.loop = true;
+        if (!ctx) { ctx = new AudioContext(); analyser = ctx.createAnalyser(); analyser.fftSize = 128; data = new Uint8Array(analyser.frequencyBinCount); }
+        if (source) source.disconnect();
+        source = ctx.createMediaElementSource(audio);
+        source.connect(analyser); analyser.connect(ctx.destination);
+        audio.play(); draw();
+      }
+      sel.addEventListener('change', () => loadTrack(parseInt(sel.value)));
+      win.el.querySelector('#vr-play').addEventListener('click', () => {
+        if (!audio) { loadTrack(parseInt(sel.value || 0)); return; }
+        if (audio.paused) { audio.play(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+        else audio.pause();
+      });
       win.el.querySelector('#vr-file').addEventListener('change', e => {
         const f = e.target.files[0]; if (!f) return;
-        if (audio) { audio.pause(); URL.revokeObjectURL(audio.src); }
+        if (audio) { audio.pause(); audio.src = ''; }
         audio = new Audio(URL.createObjectURL(f));
         audio.loop = true;
         if (!ctx) { ctx = new AudioContext(); analyser = ctx.createAnalyser(); analyser.fftSize = 128; data = new Uint8Array(analyser.frequencyBinCount); }
@@ -541,12 +569,7 @@ const apps = {
         source.connect(analyser); analyser.connect(ctx.destination);
         audio.play(); draw();
       });
-      win.el.querySelector('#vr-play').addEventListener('click', () => {
-        if (!audio) return;
-        if (audio.paused) { audio.play(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
-        else audio.pause();
-      });
-      win.addCleanup = () => cancelAnimationFrame(raf);
+      win.addCleanup = () => { cancelAnimationFrame(raf); if (audio) { audio.pause(); audio.src = ''; } };
     }
   },
 
