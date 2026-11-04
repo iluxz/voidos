@@ -289,31 +289,87 @@ const apps = {
       const c = win.el.querySelector('#cube-canvas');
       const gl = c.getContext('webgl');
       if(!gl){ c.style.background='#300'; c.textContent='webgl unavailable'; return; }
-      const vs=`attribute vec3 p; uniform mat4 m; void main(){gl_Position=m*vec4(p,1.0);}`;
-      const fs=`precision mediump float; void main(){gl_FragColor=vec4(0.65,0.33,0.97,1.0);}`;
+
       function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+      const vs=`attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; uniform mat4 m; uniform mat4 mod; varying vec3 vC; varying vec3 vN; void main(){vC=aC;vN=mat3(mod)*aN;gl_Position=m*vec4(aP,1.0);}`;
+      const fs=`precision mediump float; varying vec3 vC; varying vec3 vN; uniform float em; uniform float al; void main(){vec3 L=normalize(vec3(0.4,0.6,1.0));float d=max(dot(normalize(vN),L),0.0);vec3 col=vC*(0.25+d*0.75)+vC*em;gl_FragColor=vec4(col,al);}`;
       const prog=gl.createProgram();
       gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));
       gl.linkProgram(prog); gl.useProgram(prog);
-      const verts=new Float32Array([-1,-1,-1,1,-1,-1,1,1,-1,-1,1,-1,-1,-1,1,1,-1,1,1,1,1,-1,1,1]);
-      const idx=new Uint16Array([0,1,1,2,2,3,3,0,4,5,5,6,6,7,7,4,0,4,1,5,2,6,3,7]);
-      const vb=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vb); gl.bufferData(gl.ARRAY_BUFFER,verts,gl.STATIC_DRAW);
-      const ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);
-      const loc=gl.getAttribLocation(prog,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,3,gl.FLOAT,false,0,0);
-      const ml=gl.getUniformLocation(prog,'m');
+      const aP=gl.getAttribLocation(prog,'aP'), aN=gl.getAttribLocation(prog,'aN'), aC=gl.getAttribLocation(prog,'aC');
+      const uM=gl.getUniformLocation(prog,'m'), uMod=gl.getUniformLocation(prog,'mod'), uEm=gl.getUniformLocation(prog,'em'), uAl=gl.getUniformLocation(prog,'al');
+
+      function mat4(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);}
+      function mul(a,b){const o=mat4();for(let i=0;i<4;i++)for(let j=0;j<4;j++){o[j*4+i]=0;for(let k=0;k<4;k++)o[j*4+i]+=a[k*4+i]*b[j*4+k];}return o;}
+      function trans(x,y,z){const o=mat4();o[12]=x;o[13]=y;o[14]=z;return o;}
+      function rotX(a){const c=Math.cos(a),s=Math.sin(a),o=mat4();o[5]=c;o[6]=s;o[9]=-s;o[10]=c;return o;}
+      function rotY(a){const c=Math.cos(a),s=Math.sin(a),o=mat4();o[0]=c;o[2]=-s;o[8]=s;o[10]=c;return o;}
+      function rotZ(a){const c=Math.cos(a),s=Math.sin(a),o=mat4();o[0]=c;o[1]=s;o[4]=-s;o[5]=c;return o;}
+      function scale(x,y,z){const o=mat4();o[0]=x;o[5]=y;o[10]=z;return o;}
+      function persp(fov,a,n,f){const t=Math.tan(fov/2),o=mat4();o[0]=1/(a*t);o[5]=1/t;o[10]=-(f+n)/(f-n);o[11]=-1;o[14]=-(2*f*n)/(f-n);return o;}
+
+      function geoCube(s,r,g,b){
+        const d=[],n=[[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[1,0,0],[-1,0,0]],sh=[0.8,0.6,1,0.5,0.7,0.7];
+        const F=[[[-s,-s,s],[s,-s,s],[s,s,s],[-s,-s,s],[s,s,s],[-s,s,s]],[[s,-s,-s],[-s,-s,-s],[-s,s,-s],[s,-s,-s],[-s,s,-s],[s,s,-s]],[[-s,s,s],[s,s,s],[s,s,-s],[-s,s,s],[s,s,-s],[-s,s,-s]],[[-s,-s,-s],[s,-s,-s],[s,-s,s],[-s,-s,-s],[s,-s,s],[-s,-s,s]],[[s,-s,s],[s,-s,-s],[s,s,-s],[s,-s,s],[s,s,-s],[s,s,s]],[[-s,-s,-s],[-s,-s,s],[-s,s,s],[-s,-s,-s],[-s,s,s],[-s,s,-s]]];
+        for(let fi=0;fi<6;fi++)for(let vi=0;vi<6;vi++){const v=F[fi][vi],no=n[fi];d.push(v[0],v[1],v[2],no[0],no[1],no[2],r*sh[fi],g*sh[fi],b*sh[fi]);}
+        return new Float32Array(d);
+      }
+      function upBuf(data){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);return b;}
+      function bind(buf){gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.enableVertexAttribArray(aP);gl.vertexAttribPointer(aP,3,gl.FLOAT,false,36,0);gl.enableVertexAttribArray(aN);gl.vertexAttribPointer(aN,3,gl.FLOAT,false,36,12);gl.enableVertexAttribArray(aC);gl.vertexAttribPointer(aC,3,gl.FLOAT,false,36,24);}
+
+      const outerBuf=upBuf(geoCube(1.3,0.12,0.12,0.12));
+      const innerC=[
+        {c:[1,.2,.3],o:.55,s:1,p:0,sp:1.5},{c:[.2,1,.3],o:.55,s:1,p:Math.PI/4,sp:-1.2},
+        {c:[.2,.3,1],o:.55,s:1,p:Math.PI/2,sp:1.8},{c:[1,1,.2],o:.55,s:1,p:3*Math.PI/4,sp:-1},
+        {c:[1,.2,1],o:.45,s:.7,p:Math.PI,sp:2},{c:[.2,1,1],o:.45,s:.7,p:5*Math.PI/4,sp:-1.5},
+        {c:[1,.6,.1],o:.45,s:.7,p:3*Math.PI/2,sp:1.3},{c:[.6,.2,1],o:.45,s:.7,p:7*Math.PI/4,sp:-1.7}
+      ];
+      const iBufs=[], iCnts=[];
+      for(const ic of innerC){const d=geoCube(0.22,ic.c[0],ic.c[1],ic.c[2]); iBufs.push(upBuf(d)); iCnts.push(d.length/9);}
+
+      // glowing edge lines
+      const edgeS=1.31;
+      const edgeVerts=new Float32Array([-edgeS,-edgeS,-edgeS,edgeS,-edgeS,-edgeS, edgeS,-edgeS,-edgeS,edgeS,edgeS,-edgeS, edgeS,edgeS,-edgeS,-edgeS,edgeS,-edgeS, -edgeS,edgeS,-edgeS,-edgeS,-edgeS,-edgeS, -edgeS,-edgeS,edgeS,edgeS,-edgeS,edgeS, edgeS,-edgeS,edgeS,edgeS,edgeS,edgeS, edgeS,edgeS,edgeS,-edgeS,edgeS,edgeS, -edgeS,edgeS,edgeS,-edgeS,-edgeS,edgeS, -edgeS,-edgeS,-edgeS,-edgeS,-edgeS,edgeS, edgeS,-edgeS,-edgeS,edgeS,-edgeS,edgeS, edgeS,edgeS,-edgeS,edgeS,edgeS,edgeS, -edgeS,edgeS,-edgeS,-edgeS,edgeS,edgeS]);
+      const edgeBuf=upBuf(edgeVerts);
+      const edgeVs=`attribute vec3 aP; uniform mat4 m; void main(){gl_Position=m*vec4(aP,1.0);}`;
+      const edgeFs=`precision mediump float; void main(){gl_FragColor=vec4(0.65,0.33,0.97,0.55);}`;
+      const eProg=gl.createProgram(); gl.attachShader(eProg,sh(gl.VERTEX_SHADER,edgeVs)); gl.attachShader(eProg,sh(gl.FRAGMENT_SHADER,edgeFs)); gl.linkProgram(eProg);
+      const eAP=gl.getAttribLocation(eProg,'aP'), eM=gl.getUniformLocation(eProg,'m');
+
       let rx=0.4, ry=0.4, drag=false, lx, ly;
       c.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
       window.addEventListener('mousemove',e=>{if(!drag)return;ry+=(e.clientX-lx)*0.01;rx+=(e.clientY-ly)*0.01;lx=e.clientX;ly=e.clientY;});
       window.addEventListener('mouseup',()=>drag=false);
-      function mat4(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);}
-      function mul(a,b){const o=mat4();for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)o[i*4+j]+=a[i*4+k]*b[k*4+j];return o;}
-      function persp(fov,a,n,f){const t=Math.tan(fov/2),o=mat4();o[0]=1/(a*t);o[5]=1/t;o[10]=-(f+n)/(f-n);o[11]=-1;o[14]=-(2*f*n)/(f-n);return o;}
-      function rotX(a){const c=Math.cos(a),s=Math.sin(a),o=mat4();o[5]=c;o[6]=s;o[9]=-s;o[10]=c;return o;}
-      function rotY(a){const c=Math.cos(a),s=Math.sin(a),o=mat4();o[0]=c;o[2]=-s;o[8]=s;o[10]=c;return o;}
-      let raf;
-      function frame(){gl.viewport(0,0,c.width,c.height);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);
-        const m=mul(persp(1,c.width/c.height,0.1,100),mul(rotX(rx),rotY(ry)));
-        m[14]-=4; gl.uniformMatrix4fv(ml,false,m); gl.drawElements(gl.LINES,24,gl.UNSIGNED_SHORT,0);
+
+      let raf, t0=performance.now();
+      function frame(){
+        const t=(performance.now()-t0)*0.001;
+        gl.viewport(0,0,c.width,c.height); gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+        const view=mul(rotX(rx),rotY(ry));
+        const proj=persp(1.1,c.width/c.height,0.1,100);
+        const base=mul(proj,view); base[14]-=4;
+
+        gl.useProgram(prog);
+        // outer cube
+        gl.uniformMatrix4fv(uM,false,base); gl.uniformMatrix4fv(uMod,false,mat4()); gl.uniform1f(uEm,0.05); gl.uniform1f(uAl,0.22);
+        bind(outerBuf); gl.drawArrays(gl.TRIANGLES,0,36);
+
+        // inner cubes
+        for(let i=0;i<innerC.length;i++){
+          const ic=innerC[i], oa=t*ic.s+ic.p;
+          const ox=Math.cos(oa)*ic.o, oy=Math.sin(oa*0.7)*ic.o*0.35, oz=Math.sin(oa)*ic.o;
+          const mod=mul(mul(trans(ox,oy,oz),mul(mul(rotX(t*ic.sp),rotY(t*ic.sp*0.7)),rotZ(t*ic.sp*0.3))),scale(ic.s,ic.s,ic.s));
+          gl.uniformMatrix4fv(uM,false,mul(base,mod)); gl.uniformMatrix4fv(uMod,false,mod); gl.uniform1f(uEm,0.35); gl.uniform1f(uAl,0.95);
+          bind(iBufs[i]); gl.drawArrays(gl.TRIANGLES,0,iCnts[i]);
+        }
+
+        // edge glow
+        gl.useProgram(eProg); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE); gl.depthMask(false);
+        gl.enableVertexAttribArray(eAP); gl.vertexAttribPointer(eAP,3,gl.FLOAT,false,0,0);
+        gl.bindBuffer(gl.ARRAY_BUFFER,edgeBuf); gl.uniformMatrix4fv(eM,false,base); gl.drawArrays(gl.LINES,0,24);
+        gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+
         raf=requestAnimationFrame(frame);
       }
       frame();
