@@ -3,7 +3,7 @@ const desktop = $('desktop');
 const windowsEl = $('windows');
 const taskbarApps = $('taskbar-apps');
 const objEl = $('obj');
-const objBubble = $('.obj-bubble');
+const objBubble = document.querySelector('.obj-bubble');
 const startMenu = $('start-menu');
 const startBtn = $('start-btn');
 
