@@ -537,7 +537,10 @@ const apps = {
       function draw() {
         if (!analyser) return;
         analyser.getByteFrequencyData(data);
-        for (let i = 0; i < 32; i++) bars[i].style.height = Math.max(4, data[i * 2]) + 'px';
+        for (let i = 0; i < 32; i++) {
+          const h = Math.max(4, Math.round(data[i * 2] / 255 * 80));
+          bars[i].style.height = h + 'px';
+        }
         raf = requestAnimationFrame(draw);
       }
       function loadTrack(idx) {
