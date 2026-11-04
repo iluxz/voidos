@@ -171,10 +171,10 @@ desktop.addEventListener('click', e => {
 
 const apps = {
   terminal: {
-    title: 'void#',
+    title: 'cube#',
     content: () => `
       <div class="terminal">
-        <div class="terminal-output" id="term-out">VOID OS v0.1\ntype 'help' or just vibe\n</div>
+        <div class="terminal-output" id="term-out">cube# interpreter v0.1\ntype 'help' or just vibe\n</div>
         <div class="terminal-input-line"><span class="terminal-prompt">&gt;</span><input class="terminal-input" id="term-in"></div>
       </div>
     `,
