@@ -1,6 +1,6 @@
 # VOID OS
 
-a lightweight browser fake OS for lux's school desktops.
+a lightweight browser fake OS thing idk
 
 ## apps
 
